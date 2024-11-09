@@ -3,10 +3,43 @@ use rand_mt::Mt19937GenRand64;
 use std::{iter, time::{Duration, Instant}};
 
 pub const GRAPH_SIZE: u16 = 2008;
+pub const PACKED_GRAPH_SIZE : usize = (((GRAPH_SIZE as usize) * (GRAPH_SIZE as usize) / 2) + 31) / 32;
+pub const MAX_CHECKS : usize = 7000;
+
+struct GraphData {
+    pub d : [u32; PACKED_GRAPH_SIZE],
+    pub _size : u32
+}
+
+impl GraphData {
+    pub fn new(size : u32) -> Self {
+        GraphData {
+            d : [0; PACKED_GRAPH_SIZE],
+            _size : size
+        }
+    }
+
+    pub fn coord_to_idx(&self, i : u32, j : u32) -> u32 {
+        if i <= j {
+            return i * self._size - ((i*(i + 1)) >> 1) + (j-(i+1)); 
+        }
+
+        return j * self._size - ((j*(j + 1)) >> 1) + (i - (j+1));            
+    }
+
+    pub fn get(&self, i : u32, j : u32) -> bool {
+        let idx : u32 = self.coord_to_idx(i,j);
+        let bit_pos : u32 = idx & 0x1f;
+
+        let val : u32 = self.d[(idx >> 5) as usize] & (1 << (31-bit_pos));
+        return val != 0; 
+    }    
+}
 
 pub struct HCGraphUtil {
     start_time: Instant,
     vdf_bailout: u64,
+    nchecks : usize
 }
 
 impl HCGraphUtil {
@@ -18,6 +51,7 @@ impl HCGraphUtil {
         HCGraphUtil {
             start_time: Instant::now(),
             vdf_bailout: bailout_timer,
+            nchecks: 0
         }
     }
 
@@ -88,6 +122,89 @@ impl HCGraphUtil {
 
         graph
     }
+
+    fn my_generate_graph_v2(&self, hash: &U256, grid_size: u16) -> GraphData
+    {
+        let mut graph = GraphData::new(grid_size as u32);
+        let seed = self.extract_seed_from_hash(hash);
+        let mut prng = Mt19937GenRand64::from(seed.to_le_bytes());
+        for dw in 0..PACKED_GRAPH_SIZE {
+            graph.d[dw] = (prng.next_u64() & 0xFFFFFFFF) as u32;
+        }
+        return graph;
+    }
+
+    fn my_hamiltonian_cycle_util(&mut self, graph : &GraphData,
+        path : &mut [u16],
+        pos : usize, 
+        freev : &mut [u16]) -> bool
+    {
+        self.nchecks = self.nchecks + 1;
+        if self.nchecks > MAX_CHECKS {
+            return false;
+        }
+
+        if pos == graph._size as usize {
+            if graph.get(path[pos - 1] as u32, path[0] as u32) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+
+        let mut prev_pos : u16 = 0;
+
+        loop {
+            let v : u16 = freev[prev_pos as usize];
+            if v as u32 == graph._size {
+                break;        
+            }
+
+            if graph.get(path[pos - 1] as u32, v as u32) {
+                path[pos] = v;
+                freev[prev_pos as usize] = freev[v as usize];
+
+                if self.my_hamiltonian_cycle_util(&graph, path, pos + 1, freev) {
+                    return true;
+                }
+                if self.nchecks > MAX_CHECKS {
+                    return false;
+                }                
+
+                freev[prev_pos as usize] = v;
+                
+            }
+
+            prev_pos = v;
+        }
+
+        return false;
+    }
+
+
+    pub fn my_find_hamiltonian_cycle_v2(&mut self, graph_hash: U256) -> Vec<u16> {
+        let grid_size = self.get_grid_size_v2(&graph_hash);
+
+
+        let graph = self.my_generate_graph_v2(&graph_hash, grid_size);
+
+        let mut path = vec![u16::MAX; grid_size as usize];
+        path[0] = 0;
+
+        self.start_time = Instant::now();
+        self.nchecks = 0;
+
+        let mut freev = vec![u16::MAX; graph._size as usize];
+        for i in 0..freev.len() {
+            freev[i] = (i+1) as u16;
+        }
+
+        if !self.my_hamiltonian_cycle_util(&graph, &mut path, 1, &mut freev) {
+            return vec![];
+        }
+        path
+    }
+
 
     fn _opt(&self, hash: &U256, grid_size: u16) -> Vec<Vec<bool>> {
         let grid_size = grid_size as usize;

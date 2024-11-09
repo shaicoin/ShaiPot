@@ -103,6 +103,8 @@ async fn main() {
                 };
 
                 if let Some(job) = job_option {
+                    const NEW_JOB_SAMPLING_PARAM : u32 = 100;
+                    let mut new_job_sample_counter : u32 = 0;
                     loop {
                         let nonce = generate_nonce();
 
@@ -131,14 +133,18 @@ async fn main() {
                                 }
                             }
 
-                            // Check if there's a new job
-                            let new_job_option = {
-                                let job_guard = current_job_loop.blocking_lock();
-                                job_guard.clone()
-                            };
+                            new_job_sample_counter = new_job_sample_counter + 1;                            
+                            if new_job_sample_counter == NEW_JOB_SAMPLING_PARAM {
+                                new_job_sample_counter = 0;
+                                // Check if there's a new job
+                                let new_job_option = {
+                                    let job_guard = current_job_loop.blocking_lock();
+                                    job_guard.clone()
+                                };
 
-                            if new_job_option.is_none() || new_job_option.unwrap().job_id != job.job_id {
-                                break;
+                                if new_job_option.is_none() || new_job_option.unwrap().job_id != job.job_id {
+                                    break;
+                                }
                             }
                         }
                     }
