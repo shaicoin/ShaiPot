@@ -32,8 +32,11 @@ pub fn generate_nonce() -> String {
     format!("{:08x}", nonce)
 }
 
-pub fn meets_target(hash: &str, target: &str) -> bool {
-    let target_int = U256::from_str_radix(target, 16).expect("Invalid target hex string");
-    let hash_int = U256::from_str_radix(hash, 16).expect("Invalid hash hex string");
+pub fn meets_target(hash: &[u8], target: &[u8]) -> bool {
+    // 使用 from_big_endian 来直接从字节切片创建 U256
+    let target_int = U256::from_big_endian(target);
+    let hash_int = U256::from_big_endian(hash);
+
+    // 比较 U256 值
     hash_int < target_int
 }

@@ -1,13 +1,15 @@
+cargo-features = ["profile-rustflags"]
+
 [package]
 name = "shaipot"
-version = "3.0.0"
+version = "4.1.0"
 edition = "2021"
 
 [dependencies]
-tokio = { version = "1.40.0", features = ["full"] }
+tokio = { version = "1.41.0", features = ["full"] }
 tokio-tungstenite = { version = "0.24", features = ["native-tls"] }
 native-tls = "0.2.12"
-tungstenite = { version = "0.20", features = ["native-tls"] }
+tungstenite = { version = "0.24.0", features = ["native-tls"] }
 futures-util = "0.3.30"
 serde = { version = "1.0.210", features = ["derive"] }
 serde_json = "1.0.128"
@@ -20,3 +22,26 @@ clap = { version = "4.5.18", features = ["derive"] }
 sha2 = "0.10.8"
 rand_mt = "4.2.2"
 warp = "0.3.7"
+rayon = "1.10.0"
+core_affinity = "0.8.1"
+rustacuda = "0.1"
+
+[profile.release]
+codegen-units = 1
+opt-level = 3
+debug = false
+split-debuginfo = 'off'
+debug-assertions = false
+overflow-checks = false
+lto = true
+panic = 'unwind'
+incremental = false
+rpath = false
+#rustflags = ["-C", "link-arg=-Wl,--stack,838860800"]
+
+
+# [lib]
+# crate-type = ["cdylib", "rlib"]
+
+# [dependencies]
+# cuda_std = "0.2.2"

@@ -1,6 +1,9 @@
 
 # Shaipot - Shaicoin Miner
 
+##
+
+
 Welcome to **Shaipot**, a Shaicoin miner written in Rust. Shaipot is designed for efficiency and speed, supporting multi-threaded mining with minimal setup.
 
 ## Getting Started
